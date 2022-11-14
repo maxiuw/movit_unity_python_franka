@@ -233,31 +233,6 @@ class UnityPythonConnector(object):
             print(plan)
             return plan
         return self.move_group.plan()[1]
-
-    # def close_hand(self, init_angles, verbose = False):
-    #     # plan the traj given angles and target pose 
-    #     robot = moveit_msgs.msg.RobotState()
-    #     robot.joint_state = self.generate_JointMsg(init_angles)
-    #     self.move_group_hand.set_start_state(robot)     
-    #     self.move_group_hand.set_pose_target([0.01, 0.01])
-    #     if verbose:
-    #         plan = self.move_group_hand.plan()[1]
-    #         print(plan)
-    #         return plan
-    #     return self.move_group_hand.plan()[1]
-
-    # def open_hand(self, init_angles, verbose = False):
-    #     # plan the traj given angles and target pose 
-    #     robot = moveit_msgs.msg.RobotState()
-    #     robot.joint_state = self.generate_JointMsg(init_angles)
-    #     # self.robot.joint_state = self.generate_JointMsg(init_angles)
-    #     self.move_group_hand.set_start_state(robot)     
-    #     self.move_group_hand.set_pose_target([0.025, 0.025])
-    #     if verbose:
-    #         plan = self.move_group_hand.plan()[1]
-    #         print(plan)
-    #         return plan
-    #     return self.move_group_hand.plan()[1]
     
     def go_to_pose_goal(self, request):
         # Copy class variables to local variables to make the web tutorials more clear.
