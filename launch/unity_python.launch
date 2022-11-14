@@ -1,0 +1,10 @@
+<launch>
+
+  <node name="moveit_Unity" pkg="unity_python" type="moveit_Unity.py" respawn="false" output="screen">
+
+  <node name="gripper_unity" pkg="unity_python" type="franka_gripper.py" respawn="false" output="screen"> 
+
+
+  </node>
+
+</launch>
