@@ -34,7 +34,7 @@
 #
 # Author: Acorn Pooley, Mike Lautman
 
-## BEGIN_SUB_TUTORIAL imports
+## BEGIN_SUB_robot_controller imports
 ##
 ## To use the Python MoveIt interfaces, we will import the `moveit_commander`_ namespace.
 ## This namespace provides us with a `MoveGroupCommander`_ class, a `PlanningSceneInterface`_ class,
@@ -73,11 +73,11 @@ import math
 from std_msgs.msg import String
 from moveit_commander.conversions import pose_to_list
 from panda_msgs.srv import PandaSimpleService, PandaSimpleServiceResponse, PandaPickUp, PandaPickUpResponse, PandaManyPoses, PandaManyPosesResponse
-from panda_msgs.msg import FloatList
+from panda_msgs.msg import FloatList, PandaTrajectoryList
 from collision_scene_example import CollisionSceneExample 
 from scipy.spatial.transform import Rotation
 from franka_gripper_python import grasp_client_close, grasp_client_open
-## END_SUB_TUTORIAL
+## END_SUB_robot_controller
 
 
 def all_close(goal, actual, tolerance):
@@ -111,17 +111,17 @@ def all_close(goal, actual, tolerance):
 
 
 class UnityPythonConnector(object):
-    """MoveGroupPythonInterfaceTutorial"""
+    """MoveGroupPythonInterfacerobot_controller"""
 
     def __init__(self):
         super(UnityPythonConnector, self).__init__()
 
-        ## BEGIN_SUB_TUTORIAL setup
+        ## BEGIN_SUB_robot_controller setup
         ##
         ## First initialize `moveit_commander`_ and a `rospy`_ node:
         moveit_commander.roscpp_initialize(sys.argv)
         rospy.init_node("unity_python", anonymous=True)
-        joint_state_publisher_Unity = rospy.Publisher("/joint_state_unity", FloatList , queue_size = 10)
+        self.joint_state_publisher_Unity = rospy.Publisher("/joint_state_unity", FloatList , queue_size = 10)
         ## Instantiate a `RobotCommander`_ object. Provides information such as the robot's
         ## kinematic model and the robot's current joint states
         robot = moveit_commander.RobotCommander()
@@ -132,7 +132,7 @@ class UnityPythonConnector(object):
         scene = moveit_commander.PlanningSceneInterface()
         tau = 2 * math.pi
         ## Instantiate a `MoveGroupCommander`_ object.  This object is an interface
-        ## to a planning group (group of joints).  In this tutorial the group is the primary
+        ## to a planning group (group of joints).  In this robot_controller the group is the primary
         ## arm joints in the Panda robot, so we set the group's name to "panda_arm".
         ## If you are using a different robot, change this value to the name of your robot
         ## arm planning group.
@@ -156,9 +156,9 @@ class UnityPythonConnector(object):
         )
         self.pose_n = 0
 
-        ## END_SUB_TUTORIAL
+        ## END_SUB_robot_controller
 
-        ## BEGIN_SUB_TUTORIAL basic_info
+        ## BEGIN_SUB_robot_controller basic_info
         ##
         ## Getting Basic Information
         ## ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -179,7 +179,7 @@ class UnityPythonConnector(object):
         print("============ Printing robot state")
         # print(robot.get_current_state())
         print("")
-        ## END_SUB_TUTORIAL
+        ## END_SUB_robot_controller
         self.joint_names = ['panda_joint1', 'panda_joint2', 'panda_joint3', 'panda_joint4', 'panda_joint5',
                     'panda_joint6','panda_joint7']
         self.hand_joint_names = ['panda_finger_joint1', 'panda_finger_joint2']
@@ -200,7 +200,7 @@ class UnityPythonConnector(object):
         print("franka joints {}".format(move_group.get_current_joint_values()))
         print("hand joints {}".format(move_group_hand.get_current_joint_values()))
 
-        joint_state_publisher_Unity.publish(move_group.get_current_joint_values())
+        
         print("done")
         # self.robot = moveit_msgs.msg.RobotState() # may need to uncomment
         # hand rotation 
@@ -235,7 +235,7 @@ class UnityPythonConnector(object):
         return self.move_group.plan()[1]
     
     def go_to_pose_goal(self, request):
-        # Copy class variables to local variables to make the web tutorials more clear.
+        # Copy class variables to local variables to make the web robot_controllers more clear.
         # In practice, you should use the class variables directly unless you have a good
         # reason not to.
         # print("service was called")
@@ -267,7 +267,7 @@ class UnityPythonConnector(object):
         # plan to pick up 
         # plan pack to pre pick up pose 
         # plan to placing position
-        print(request)
+        # print(request)
         # print(request.pick_pose)
         self.plans = []
         resp = PandaPickUpResponse()
@@ -294,6 +294,7 @@ class UnityPythonConnector(object):
         plan = self.plan_trajectory(previous_ending_joint_angles, pick_pose)
         self.plans.append(plan)
         # 3 come back to pre-pick up pose 
+        print(previous_ending_joint_angles, request.pick_pose)
         plan = self.plan_trajectory(previous_ending_joint_angles, request.pick_pose)
         self.plans.append(plan)
         previous_ending_joint_angles = plan.joint_trajectory.points[-1].positions
@@ -317,11 +318,12 @@ class UnityPythonConnector(object):
         # self.execute_plans(self.plans)
         return resp
 
-    def pick_no_place(self, request):
+    def pick_waypoints(self, request):
         """
         request to move around without picking or placing the objects
         """
         response = PandaManyPosesResponse()
+        request.pick_pose.position.z = 0.4
 
         # group_name = "arm"
         # move_group = moveit_commander.MoveGroupCommander(group_name)
@@ -329,20 +331,75 @@ class UnityPythonConnector(object):
         # current_robot_joint_configuration = request.current_joints
         robot_poses = []
         # print(f"this is PICK AND PLACE \n request : {request} \n current state: {request.current_joints}")
-
-        # Pre grasp - position gripper directly above target object
-        for i in range(len(request.poses)):
+        previous_ending_joint_angles = request.current_joints
+        # Pre grasp - position gripper directly above target objectexecute_plans
+        print("pre {} post {}".format(len(request.pre_pick_poses), len(request.post_pick_poses)))
+        print("pick pose {}".format(request.pick_pose))
+        for i in range(len(request.pre_pick_poses)):
             if (i == 0):
-                robot_poses.append(self.plan_trajectory(request.current_joints, request.poses[0]))
+                robot_poses.append(self.plan_trajectory(request.current_joints, request.pre_pick_poses[0]))
 
                 # robot_poses.append(plan_trajectory(move_group, req.poses[0], current_robot_joint_configuration))
             else:
-                robot_poses.append(self.plan_trajectory(robot_poses[i-1].joint_trajectory.points[-1].positions, request.poses[i]))
+                robot_poses.append(self.plan_trajectory(robot_poses[-1].joint_trajectory.points[-1].positions, request.pre_pick_poses[i]))
                 # robot_poses.append(plan_trajectory(move_group, req.poses[i], robot_poses[i-1].joint_trajectory.points[-1].positions))
         
             if not robot_poses[i].joint_trajectory.points:
                 return response
-        response.trajectories = robot_poses
+            previous_ending_joint_angles = robot_poses[-1].joint_trajectory.points[-1].positions
+
+        # save prepick traj 
+        response.trajecotry_list.trajectories_prepick = copy.deepcopy(robot_poses)
+        robot_poses = []
+
+        print("I pass 1 st part")
+        # now grasp plan
+        # last angle | x,y,z position
+        pick_pose = copy.deepcopy(request.pick_pose)
+        pick_pose.position.z = 0.3
+        plan = self.plan_trajectory(previous_ending_joint_angles, pick_pose)
+        # print(plan)
+        robot_poses.append(plan)   
+        print("I pass 2 part")
+        previous_ending_joint_angles = plan.joint_trajectory.points[-1].positions
+        # pint 2.5 just pick up
+        # pick_pose.orientation = pick_pose_rotation # rotate to the state of the 
+        plan = self.plan_trajectory(previous_ending_joint_angles, pick_pose)
+        robot_poses.append(plan)
+        print("I pass 3 part")
+
+        # adding pick trajectories
+        response.trajecotry_list.trajectories_pick = copy.deepcopy(robot_poses)
+        robot_poses = []
+
+        # 3 come back to pre-pick up pose 
+        plan = self.plan_trajectory(previous_ending_joint_angles, request.pick_pose)
+        robot_poses.append(plan)
+        print("I pass 4 part")
+        previous_ending_joint_angles = plan.joint_trajectory.points[-1].positions
+    
+        # post pick waypoints 
+        for i in range(len(request.post_pick_poses)):
+            if (i == 0):
+                robot_poses.append(self.plan_trajectory(previous_ending_joint_angles, request.post_pick_poses[0]))
+
+                # robot_poses.append(plan_trajectory(move_group, req.poses[0], current_robot_joint_configuration))
+            else:
+                robot_poses.append(self.plan_trajectory(robot_poses[-1].joint_trajectory.points[-1].positions, request.post_pick_poses[i]))
+                # robot_poses.append(plan_trajectory(move_group, req.poses[i], robot_poses[i-1].joint_trajectory.points[-1].positions))
+        
+            if not robot_poses[i].joint_trajectory.points:
+                return response
+            previous_ending_joint_angles = robot_poses[-1].joint_trajectory.points[-1].positions
+        
+        # pick 
+        # 4 come back to pre-pick up pose 
+        request.place_pose.position.z = 0.4
+        plan = self.plan_trajectory(previous_ending_joint_angles, request.place_pose)
+        robot_poses.append(plan)
+        # adding post pick trajectories
+
+        response.trajecotry_list.trajectories_postpick = robot_poses
         # If trajectory planning worked for all pick and place stages, add plan to response
         print("im good boy i returned responsed")
         return response
@@ -357,7 +414,10 @@ class UnityPythonConnector(object):
         if (self.pose_n == 2):
             grasp_client_close()
         if (self.pose_n == self.pose_n_total):
-            grasp_client_open()        
+            grasp_client_open()    
+            # zero out so the grasping can work again
+        # if (self.pose_n == 5 or self.pose_n == 6):
+        #     self.pose_n = 0    
         # hand_movement
         # open_hand_plan = self.open_hand(self.move_group_hand.get_current_joint_values())
         # open_hand_state = open_hand_plan.joint_trajectory.points[-1].positions
@@ -368,11 +428,14 @@ class UnityPythonConnector(object):
     def assign_nposes(self,response):
         self.pose_n_total = response.data
 
+    def reset_pose_n(self,req):
+        self.pose_n = 0
+
 def main():
     try:
-        
-        tutorial = UnityPythonConnector()
-        # tutorial.add_box()
+        # rospy.init_node("pubnode")
+        robot_controller = UnityPythonConnector()
+        # robot_controller.add_box()
         coll = CollisionSceneExample()
         # coll.add_table()
         # add wall behind the robot 
@@ -388,13 +451,16 @@ def main():
         dimensions = [1.5, 0.28, 0.3] # this are dims for RViz not unity so X,Y,Z (Unity Z, X, Y) - possible to flip it 
         coll.add_table(pose, dimensions, "carton_box")
         print("Ready to plan")
-        s = rospy.Service('moveit_many', PandaSimpleService, tutorial.go_to_pose_goal) # go_to_pose_goal
-        s2 = rospy.Service('panda_move', PandaPickUp, tutorial.pickup_plan)
-        s3 = rospy.Service('waypoints_service', PandaManyPoses, tutorial.pick_no_place)
-        # sub1 = rospy.Subscriber('plan_publisher', moveit_msgs.msg.RobotTrajectory, tutorial.execute_plans)
-        sub2 = rospy.Subscriber('realrobot_publisher', moveit_msgs.msg.RobotTrajectory, tutorial.execute_plans)
-        sub3 = rospy.Subscriber('total_poses_n', Int16, tutorial.assign_nposes)
-        # s4 = rospy.Service('waypoints_service', moveit_msgs.msg.RobotTrajectory, tutorial.execute_plans)
+        s = rospy.Service('moveit_many', PandaSimpleService, robot_controller.go_to_pose_goal) # go_to_pose_goal
+        s2 = rospy.Service('panda_move', PandaPickUp, robot_controller.pickup_plan)
+        s3 = rospy.Service('waypoints_service', PandaManyPoses, robot_controller.pick_waypoints)
+        sub2 = rospy.Subscriber('realrobot_publisher', moveit_msgs.msg.RobotTrajectory, robot_controller.execute_plans)
+        sub3 = rospy.Subscriber('total_poses_n', Int16, robot_controller.assign_nposes)
+        sub4 = rospy.Subscriber('reset_n_poses', Int16, robot_controller.reset_pose_n)
+
+        while not rospy.is_shutdown():
+            robot_controller.joint_state_publisher_Unity.publish(robot_controller.move_group.get_current_joint_values())
+        # s4 = rospy.Service('waypoints_service', moveit_msgs.msg.RobotTrajectory, robot_controller.execute_plans)
         rospy.spin()
     except rospy.ROSInterruptException:
         return
