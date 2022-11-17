@@ -338,12 +338,8 @@ class UnityPythonConnector(object):
         for i in range(len(request.pre_pick_poses)):
             if (i == 0):
                 robot_poses.append(self.plan_trajectory(request.current_joints, request.pre_pick_poses[0]))
-
-                # robot_poses.append(plan_trajectory(move_group, req.poses[0], current_robot_joint_configuration))
             else:
-                robot_poses.append(self.plan_trajectory(robot_poses[-1].joint_trajectory.points[-1].positions, request.pre_pick_poses[i]))
-                # robot_poses.append(plan_trajectory(move_group, req.poses[i], robot_poses[i-1].joint_trajectory.points[-1].positions))
-        
+                robot_poses.append(self.plan_trajectory(robot_poses[-1].joint_trajectory.points[-1].positions, request.pre_pick_poses[i]))        
             if not robot_poses[i].joint_trajectory.points:
                 return response
             previous_ending_joint_angles = robot_poses[-1].joint_trajectory.points[-1].positions
