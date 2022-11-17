@@ -48,7 +48,7 @@ import imp
 from six.moves import input
 import actionlib
 import franka_gripper.msg
-
+import time
 import sys
 import copy
 import rospy
@@ -344,6 +344,10 @@ class UnityPythonConnector(object):
                 return response
             previous_ending_joint_angles = robot_poses[-1].joint_trajectory.points[-1].positions
 
+        # go to prepick pose 
+        plan = self.plan_trajectory(previous_ending_joint_angles, request.pick_pose)
+        robot_poses.append(plan)
+        previous_ending_joint_angles = robot_poses[-1].joint_trajectory.points[-1].positions
         # save prepick traj 
         response.trajecotry_list.trajectories_prepick = copy.deepcopy(robot_poses)
         robot_poses = []
@@ -403,14 +407,16 @@ class UnityPythonConnector(object):
     def execute_plans(self, plan):
         # executes plans on the real world robot (or rviz robot)
         # for plan in plans:
-        self.pose_n += 1
-        print(self.pose_n)        
+        # self.pose_n += 1
+        # print(self.pose_n)        
         self.move_group.execute(plan, wait=True)
+        # wait until the gripper is closed or open
+        time.sleep(1)
         # if ((self.pose_n == 2 and self.pose_n_total == 5) or (self.pose_n == 2 and self.pose_n_total > 5)):
-        if (self.pose_n == 2):
-            grasp_client_close()
-        if (self.pose_n == self.pose_n_total):
-            grasp_client_open()    
+        # if (self.pose_n == 2):
+        #     grasp_client_close()
+        # if (self.pose_n == self.pose_n_total):
+        #     grasp_client_open()    
             # zero out so the grasping can work again
         # if (self.pose_n == 5 or self.pose_n == 6):
         #     self.pose_n = 0    
@@ -427,6 +433,14 @@ class UnityPythonConnector(object):
     def reset_pose_n(self,req):
         self.pose_n = 0
 
+    def gripper_action(self, msg):
+        # print("pose {}".format(msg.data))
+        if (msg.data == 0):
+            grasp_client_open()
+            time.sleep(1)
+        elif (msg.data == 1):
+            grasp_client_close()
+            time.sleep(1)
 def main():
     try:
         # rospy.init_node("pubnode")
@@ -438,7 +452,7 @@ def main():
         pose = [-0.6, 0, 0, 0, 0.707, 0, 0.707]
         dimensions = [1.2, 1.2, 0.0001]
         coll.add_table(pose, dimensions, "wall")
-        # # add box to pick up
+        # # add box to pick upgripperAction
         # pose = [0.5, 0.2, 0.1, 0, 0., 0, 1]
         # dimensions = [0.03, 0.03, 0.03]
         rot = Rotation.from_euler('xyz', [0, 0, 90], degrees=True)
@@ -453,6 +467,7 @@ def main():
         sub2 = rospy.Subscriber('realrobot_publisher', moveit_msgs.msg.RobotTrajectory, robot_controller.execute_plans)
         sub3 = rospy.Subscriber('total_poses_n', Int16, robot_controller.assign_nposes)
         sub4 = rospy.Subscriber('reset_n_poses', Int16, robot_controller.reset_pose_n)
+        sub5 = rospy.Subscriber('gripperAction', Int16, robot_controller.gripper_action)
 
         while not rospy.is_shutdown():
             robot_controller.joint_state_publisher_Unity.publish(robot_controller.move_group.get_current_joint_values())
