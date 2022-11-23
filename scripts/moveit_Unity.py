@@ -194,6 +194,8 @@ class UnityPythonConnector(object):
         self.eef_link = eef_link
         self.move_group_hand = move_group_hand
         self.pose_n_total = 5
+        self.open_g = 0
+        self.close_g = 0
         # self.group_names = group_names
         # self.add_plane_to_the_scene()
         print("============ publish current joint state")
@@ -333,8 +335,8 @@ class UnityPythonConnector(object):
         # print(f"this is PICK AND PLACE \n request : {request} \n current state: {request.current_joints}")
         previous_ending_joint_angles = request.current_joints
         # Pre grasp - position gripper directly above target objectexecute_plans
-        print("pre {} post {}".format(len(request.pre_pick_poses), len(request.post_pick_poses)))
-        print("pick pose {}".format(request.pick_pose))
+        # print("pre {} post {}".format(len(request.pre_pick_poses), len(request.post_pick_poses)))
+        # print("pick pose {}".format(request.pick_pose))
         for i in range(len(request.pre_pick_poses)):
             if (i == 0):
                 robot_poses.append(self.plan_trajectory(request.current_joints, request.pre_pick_poses[0]))
@@ -352,7 +354,7 @@ class UnityPythonConnector(object):
         response.trajecotry_list.trajectories_prepick = copy.deepcopy(robot_poses)
         robot_poses = []
 
-        print("I pass 1 st part")
+        # print("I pass 1 st part")
         # now grasp plan
         # last angle | x,y,z position
         pick_pose = copy.deepcopy(request.pick_pose)
@@ -360,13 +362,13 @@ class UnityPythonConnector(object):
         plan = self.plan_trajectory(previous_ending_joint_angles, pick_pose)
         # print(plan)
         robot_poses.append(plan)   
-        print("I pass 2 part")
+        # print("I pass 2 part")
         previous_ending_joint_angles = plan.joint_trajectory.points[-1].positions
         # pint 2.5 just pick up
         # pick_pose.orientation = pick_pose_rotation # rotate to the state of the 
         plan = self.plan_trajectory(previous_ending_joint_angles, pick_pose)
         robot_poses.append(plan)
-        print("I pass 3 part")
+        # print("I pass 3 part")
 
         # adding pick trajectories
         response.trajecotry_list.trajectories_pick = copy.deepcopy(robot_poses)
@@ -375,7 +377,7 @@ class UnityPythonConnector(object):
         # 3 come back to pre-pick up pose 
         plan = self.plan_trajectory(previous_ending_joint_angles, request.pick_pose)
         robot_poses.append(plan)
-        print("I pass 4 part")
+        # print("I pass 4 part")
         previous_ending_joint_angles = plan.joint_trajectory.points[-1].positions
     
         # post pick waypoints 
@@ -407,11 +409,17 @@ class UnityPythonConnector(object):
     def execute_plans(self, plan):
         # executes plans on the real world robot (or rviz robot)
         # for plan in plans:
-        # self.pose_n += 1
-        # print(self.pose_n)        
+        self.pose_n += 1
+        print(self.pose_n)        
         self.move_group.execute(plan, wait=True)
         # wait until the gripper is closed or open
-        time.sleep(1)
+        # time.sleep(1)
+        if self.pose_n == 3: #self.open_g:
+            grasp_client_open()
+            time.sleep(1)
+        if self.pose_n == 7: #self.close_g:
+            grasp_client_open()
+            time.sleep(1)
         # if ((self.pose_n == 2 and self.pose_n_total == 5) or (self.pose_n == 2 and self.pose_n_total > 5)):
         # if (self.pose_n == 2):
         #     grasp_client_close()
@@ -436,11 +444,9 @@ class UnityPythonConnector(object):
     def gripper_action(self, msg):
         # print("pose {}".format(msg.data))
         if (msg.data == 0):
-            grasp_client_open()
-            time.sleep(1)
+            self.open_g = msg.data
         elif (msg.data == 1):
-            grasp_client_close()
-            time.sleep(1)
+            self.close_g = msg.data
 def main():
     try:
         # rospy.init_node("pubnode")
